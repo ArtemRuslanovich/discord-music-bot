@@ -5,9 +5,11 @@ import java.util.Queue;
 
 public class AudioQueue {
     private Queue<AudioTrack> queue;
+    private AudioTrack nowPlaying;
 
     public AudioQueue() {
         this.queue = new LinkedList<>();
+        this.nowPlaying = null;
     }
 
     public void addTrack(AudioTrack track) {
@@ -24,5 +26,13 @@ public class AudioQueue {
 
     public boolean isEmpty() {
         return queue.isEmpty();
+    }
+
+    public AudioTrack getNowPlaying() {
+        return nowPlaying;
+    }
+
+    public void setNowPlaying(AudioTrack track) {
+        nowPlaying = track;
     }
 }
