@@ -3,22 +3,25 @@ package com.discord.bot;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+
 public class AudioQueue {
-    private Queue<AudioTrack> queue;
-    private AudioTrack nowPlaying;
+    private Queue<AudioTracks> queue;
+    private AudioTracks nowPlaying;
 
     public AudioQueue() {
         this.queue = new LinkedList<>();
         this.nowPlaying = null;
     }
 
-    public void addTrack(AudioTrack track) {
-        queue.add(track);
+    public void addTrack(com.sedmelluq.discord.lavaplayer.track.AudioTrack track) {
+        queue.add(new AudioTracks(track.getInfo().title, track.getInfo().uri));
     }
 
-    public AudioTrack removeTrack() {
-        return queue.poll();
+    public AudioTrack poll() {
+        return queue.poll().getTrack();
     }
+    
 
     public void clearQueue() {
         queue.clear();
@@ -28,11 +31,11 @@ public class AudioQueue {
         return queue.isEmpty();
     }
 
-    public AudioTrack getNowPlaying() {
+    public AudioTracks getNowPlaying() {
         return nowPlaying;
     }
 
-    public void setNowPlaying(AudioTrack track) {
+    public void setNowPlaying(AudioTracks track) {
         nowPlaying = track;
     }
 }
