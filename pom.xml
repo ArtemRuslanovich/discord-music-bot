@@ -26,8 +26,11 @@
             <artifactId>JDA</artifactId>
             <version>5.0.0-alpha.22</version>
         </dependency>
-
-
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.14</version>
+        </dependency>
         <dependency>
             <groupId>com.sedmelluq</groupId>
             <artifactId>lavaplayer</artifactId>
