@@ -19,7 +19,12 @@ public class AudioTracks {
     public String getUrl() {
         return url;
     }
+
     public AudioTrack getTrack() {
         return track;
+    }
+
+    public void setTrack(AudioTrack track) {
+        this.track = track;
     }
 }

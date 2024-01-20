@@ -15,11 +15,17 @@ public class AudioQueue {
     }
 
     public void addTrack(com.sedmelluq.discord.lavaplayer.track.AudioTrack track) {
-        queue.add(new AudioTracks(track.getInfo().title, track.getInfo().uri));
+        AudioTracks audioTracks = new AudioTracks(track.getInfo().title, track.getInfo().uri);
+        audioTracks.setTrack(track); // Установка AudioTrack
+        queue.add(audioTracks);
     }
 
     public AudioTrack poll() {
-        return queue.poll().getTrack();
+        AudioTracks audioTracks = queue.poll();
+        if (audioTracks != null) {
+            return audioTracks.getTrack();
+        }
+        return null;
     }
     
 
