@@ -9,7 +9,6 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.GuildVoiceState;
-import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -20,8 +19,10 @@ import net.dv8tion.jda.api.entities.Member;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class MusicBot extends ListenerAdapter {
+    private static final Logger logger = Logger.getLogger(MusicBot.class.getName());
     private final AudioPlayerManager playerManager;
     private final Map<Long, GuildMusicManager> musicManagers;
 
@@ -30,6 +31,7 @@ public class MusicBot extends ListenerAdapter {
         AudioSourceManagers.registerRemoteSources(playerManager);
         AudioSourceManagers.registerLocalSource(playerManager);
         this.musicManagers = new HashMap<>();
+        logger.info("MusicBot initialized");
     }
 
     @Override
@@ -44,9 +46,11 @@ public class MusicBot extends ListenerAdapter {
                 loadAndPlay((TextChannel) event.getChannel(), command[1], member, event.getGuild());
             } else {
                 event.getChannel().sendMessage("Error: Member not found.").queue();
+                logger.warning("Member not found for command: " + command[1]);
             }
         }
     }
+
     private synchronized GuildMusicManager getGuildAudioPlayer(Guild guild) {
         long guildId = Long.parseLong(guild.getId());
         GuildMusicManager musicManager = musicManagers.get(guildId);
@@ -54,6 +58,7 @@ public class MusicBot extends ListenerAdapter {
         if (musicManager == null) {
             musicManager = new GuildMusicManager(playerManager, new AudioQueue());
             musicManagers.put(guildId, musicManager);
+            logger.info("Created new GuildMusicManager for guild: " + guild.getName());
         }
 
         guild.getAudioManager().setSendingHandler(musicManager.getSendHandler());
@@ -63,33 +68,35 @@ public class MusicBot extends ListenerAdapter {
 
     private void loadAndPlay(final TextChannel channel, final String trackUrl, final Member member, Guild guild) {
         GuildMusicManager musicManager = getGuildAudioPlayer(guild);
-    
+
+        logger.info("Loading item: " + trackUrl);
         playerManager.loadItemOrdered(musicManager, trackUrl, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack track) {
                 channel.sendMessage("Adding to queue " + track.getInfo().title).queue();
-    
-                // Set the requesterId when a track is loaded
+                logger.info("Track loaded and added to queue: " + track.getInfo().title);
+
                 musicManager.setRequesterId(member.getIdLong());
                 musicManager.getAudioQueue().addTrack(track);
-    
+
                 play(guild, musicManager);
             }
-    
-    
+
             @Override
             public void playlistLoaded(AudioPlaylist playlist) {
-                // handle playlist
+                // Обработка плейлиста
             }
-    
+
             @Override
             public void noMatches() {
                 channel.sendMessage("No matches found for " + trackUrl).queue();
+                logger.warning("No matches found for URL: " + trackUrl);
             }
-    
+
             @Override
             public void loadFailed(FriendlyException exception) {
                 channel.sendMessage("Could not play: " + exception.getMessage()).queue();
+                logger.severe("Error loading track: " + exception.getMessage());
             }
         });
     }
@@ -98,7 +105,7 @@ public class MusicBot extends ListenerAdapter {
         if (!musicManager.getAudioQueue().isEmpty()) {
             AudioTrack nextTrack = musicManager.getAudioQueue().poll();
             AudioManager audioManager = guild.getAudioManager();
-    
+
             if (!audioManager.isConnected()) {
                 Member member = guild.getMemberById(musicManager.getRequesterId());
                 if (member != null) {
@@ -109,35 +116,34 @@ public class MusicBot extends ListenerAdapter {
                             VoiceChannel voiceChannel = (VoiceChannel) channel;
                             try {
                                 audioManager.openAudioConnection(voiceChannel);
-                                System.out.println("Trying to connect to voice channel: " + voiceChannel.getName());
+                                logger.info("Connected to voice channel: " + voiceChannel.getName());
                             } catch (Exception e) {
-                                e.printStackTrace();
-                                System.out.println("Failed to connect to voice channel: " + e.getMessage());
-                                return; // Если подключение не удалось, выходим из метода
+                                logger.severe("Failed to connect to voice channel: " + e.getMessage());
+                                return;
                             }
                         } else {
-                            System.out.println("The channel is not a voice channel.");
-                            return; // Если канал не является голосовым, выходим из метода
+                            logger.warning("The channel is not a voice channel.");
+                            return;
                         }
                     } else {
-                        System.out.println("Member is not in a voice channel or voice state is null.");
-                        return; // Если голосовой статус не найден, выходим из метода
+                        logger.warning("Member is not in a voice channel or voice state is null.");
+                        return;
                     }
                 } else {
-                    System.out.println("Member with ID " + musicManager.getRequesterId() + " not found.");
-                    return; // Если участник не найден, выходим из метода
+                    logger.warning("Member with ID " + musicManager.getRequesterId() + " not found.");
+                    return;
                 }
             }
-    
+
             try {
                 musicManager.audioPlayer.playTrack(nextTrack);
-                System.out.println("Playing track: " + nextTrack.getInfo().title);
+                logger.info("Playing track: " + nextTrack.getInfo().title);
             } catch (Exception e) {
-                e.printStackTrace();
-                System.out.println("Error playing track: " + e.getMessage());
+                logger.severe("Error playing track: " + e.getMessage());
             }
         } else {
-            System.out.println("Audio queue is empty.");
+            logger.info("Audio queue is empty.");
         }
     }
+    // Остальные методы...
 }
