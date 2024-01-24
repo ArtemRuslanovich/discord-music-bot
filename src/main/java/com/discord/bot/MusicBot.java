@@ -145,5 +145,4 @@ public class MusicBot extends ListenerAdapter {
             logger.info("Audio queue is empty.");
         }
     }
-    // Остальные методы...
 }

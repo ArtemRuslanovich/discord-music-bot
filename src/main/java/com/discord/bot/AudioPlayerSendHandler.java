@@ -1,11 +1,9 @@
 package com.discord.bot;
 
 import java.nio.ByteBuffer;
-
 import java.util.logging.Logger;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
-
 import net.dv8tion.jda.api.audio.AudioSendHandler;
 
 public class AudioPlayerSendHandler implements AudioSendHandler {
@@ -17,20 +15,24 @@ public class AudioPlayerSendHandler implements AudioSendHandler {
     public AudioPlayerSendHandler(AudioPlayer audioPlayer) {
         this.audioPlayer = audioPlayer;
     }
-    
+
     @Override
     public boolean canProvide() {
-        lastFrame = audioPlayer.provide();
-        boolean canProvide = lastFrame != null && lastFrame.getData().length > 0;
-        logger.info(String.format("Can provide: ", canProvide));
+        if (lastFrame == null) {
+            lastFrame = audioPlayer.provide();
+        }
+        boolean canProvide = lastFrame != null;
+        logger.fine("Can provide: " + canProvide);
 
-        return canProvide;
+    return canProvide;
     }
+    
 
     @Override
     public ByteBuffer provide20MsAudio() {
-        logger.info("Providing 20ms audio");
-        return ByteBuffer.wrap(lastFrame.getData());
+        ByteBuffer audioData = lastFrame != null ? ByteBuffer.wrap(lastFrame.getData()) : null;
+        logger.fine("Providing 20ms audio"); // Changed to fine for less verbose logging
+        return audioData;
     }
 
     @Override
