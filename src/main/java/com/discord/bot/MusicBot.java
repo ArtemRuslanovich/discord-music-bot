@@ -9,13 +9,12 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.GuildVoiceState;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
-import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.managers.AudioManager;
-import net.dv8tion.jda.api.entities.Member;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,12 +37,16 @@ public class MusicBot extends ListenerAdapter {
     public void onMessageReceived(MessageReceivedEvent event) {
         if (event.getAuthor().isBot()) return;
 
-        String[] command = event.getMessage().getContentRaw().split(" ");
+        String[] command = event.getMessage().getContentRaw().split(" ", 2);
 
         if (command[0].equalsIgnoreCase("!play") && command.length > 1) {
             Member member = event.getMember();
             if (member != null) {
-                loadAndPlay((TextChannel) event.getChannel(), command[1], member, event.getGuild());
+                try {
+                    loadAndPlay(command[1], member, event);
+                } catch (ClassCastException e) {
+                    logger.warning("Command not in a TextChannel: " + command[1]);
+                }
             } else {
                 event.getChannel().sendMessage("Error: Member not found.").queue();
                 logger.warning("Member not found for command: " + command[1]);
@@ -58,91 +61,93 @@ public class MusicBot extends ListenerAdapter {
         if (musicManager == null) {
             musicManager = new GuildMusicManager(playerManager, new AudioQueue());
             musicManagers.put(guildId, musicManager);
+            guild.getAudioManager().setSendingHandler(musicManager.getSendHandler());
             logger.info("Created new GuildMusicManager for guild: " + guild.getName());
         }
-
-        guild.getAudioManager().setSendingHandler(musicManager.getSendHandler());
 
         return musicManager;
     }
 
-    private void loadAndPlay(final TextChannel channel, final String trackUrl, final Member member, Guild guild) {
+    private void loadAndPlay(final String trackUrl, final Member member, final MessageReceivedEvent event) {
+        Guild guild = event.getGuild();
         GuildMusicManager musicManager = getGuildAudioPlayer(guild);
 
         logger.info("Loading item: " + trackUrl);
         playerManager.loadItemOrdered(musicManager, trackUrl, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack track) {
-                channel.sendMessage("Adding to queue " + track.getInfo().title).queue();
-                logger.info("Track loaded and added to queue: " + track.getInfo().title);
-
-                musicManager.setRequesterId(member.getIdLong());
-                musicManager.getAudioQueue().addTrack(track);
-
-                play(guild, musicManager);
+                try {
+                    TextChannel channel = (TextChannel) event.getChannel();
+                    channel.sendMessage("Adding to queue " + track.getInfo().title).queue();
+                    musicManager.getAudioQueue().addTrack(track);
+                    play(guild, musicManager, member);
+                } catch (ClassCastException e) {
+                    logger.warning("Track loaded but channel is not a TextChannel: " + trackUrl);
+                }
             }
 
             @Override
             public void playlistLoaded(AudioPlaylist playlist) {
-                // Обработка плейлиста
+                // Implement playlist handling logic here
             }
 
             @Override
             public void noMatches() {
-                channel.sendMessage("No matches found for " + trackUrl).queue();
-                logger.warning("No matches found for URL: " + trackUrl);
+                try {
+                    TextChannel channel = (TextChannel) event.getChannel();
+                    channel.sendMessage("No matches found for " + trackUrl).queue();
+                } catch (ClassCastException e) {
+                    logger.warning("No matches and channel is not a TextChannel: " + trackUrl);
+                }
             }
 
             @Override
             public void loadFailed(FriendlyException exception) {
-                channel.sendMessage("Could not play: " + exception.getMessage()).queue();
-                logger.severe("Error loading track: " + exception.getMessage());
+                try {
+                    TextChannel channel = (TextChannel) event.getChannel();
+                    channel.sendMessage("Could not play: " + exception.getMessage()).queue();
+                } catch (ClassCastException e) {
+                    logger.warning("Load failed and channel is not a TextChannel: " + trackUrl);
+                }
             }
         });
     }
 
-    private void play(Guild guild, GuildMusicManager musicManager) {
-        if (!musicManager.getAudioQueue().isEmpty()) {
-            AudioTrack nextTrack = musicManager.getAudioQueue().poll();
-            AudioManager audioManager = guild.getAudioManager();
-
-            if (!audioManager.isConnected()) {
-                Member member = guild.getMemberById(musicManager.getRequesterId());
-                if (member != null) {
-                    GuildVoiceState voiceState = member.getVoiceState();
-                    if (voiceState != null && voiceState.getChannel() != null) {
-                        AudioChannel channel = voiceState.getChannel();
-                        if (channel instanceof VoiceChannel) {
-                            VoiceChannel voiceChannel = (VoiceChannel) channel;
-                            try {
-                                audioManager.openAudioConnection(voiceChannel);
-                                logger.info("Connected to voice channel: " + voiceChannel.getName());
-                            } catch (Exception e) {
-                                logger.severe("Failed to connect to voice channel: " + e.getMessage());
-                                return;
-                            }
-                        } else {
-                            logger.warning("The channel is not a voice channel.");
-                            return;
-                        }
-                    } else {
-                        logger.warning("Member is not in a voice channel or voice state is null.");
-                        return;
-                    }
-                } else {
-                    logger.warning("Member with ID " + musicManager.getRequesterId() + " not found.");
-                    return;
+    private void play(Guild guild, GuildMusicManager musicManager, Member commandIssuer) {
+        if (musicManager.getAudioQueue().isEmpty()) {
+            logger.info("Audio queue is empty.");
+            return;
+        }
+    
+        connectToMemberVoiceChannel(guild, musicManager, commandIssuer);
+    
+        AudioTrack nextTrack = musicManager.getAudioQueue().poll();
+        musicManager.audioPlayer.playTrack(nextTrack);
+        logger.info("Playing track: " + nextTrack.getInfo().title);
+    }
+    
+    private void connectToMemberVoiceChannel(Guild guild, GuildMusicManager musicManager, Member commandIssuer) {
+        AudioManager audioManager = guild.getAudioManager();
+        if (audioManager.isConnected()) {
+            logger.info("Already connected to a voice channel.");
+            return;
+        }
+    
+        GuildVoiceState memberVoiceState = commandIssuer.getVoiceState();
+        if (memberVoiceState != null && memberVoiceState.getChannel() != null) {
+            VoiceChannel memberChannel = (VoiceChannel) memberVoiceState.getChannel();
+            if (memberChannel != null) {
+                try {
+                    audioManager.openAudioConnection(memberChannel);
+                    logger.info("Connected to voice channel: " + memberChannel.getName());
+                } catch (Exception e) {
+                    logger.severe("Failed to connect to voice channel: " + e.getMessage());
                 }
-            }
-
-            try {
-                musicManager.audioPlayer.playTrack(nextTrack);
-                logger.info("Playing track: " + nextTrack.getInfo().title);
-            } catch (Exception e) {
-                logger.severe("Error playing track: " + e.getMessage());
+            } else {
+                logger.warning("Command issuer is not in a valid voice channel.");
             }
         } else {
-            logger.info("Audio queue is empty.");
+            logger.warning("Command issuer is not in a voice channel.");
         }
     }
 }

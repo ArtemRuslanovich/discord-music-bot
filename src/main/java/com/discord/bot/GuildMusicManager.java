@@ -4,10 +4,13 @@ import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
 
+/**
+ * Manages music playback for a Discord guild.
+ */
 public class GuildMusicManager extends AudioEventAdapter {
     public final AudioPlayer audioPlayer;
-    public final AudioQueue audioQueue;
-    public long requesterId; // ID of the user who requested the track
+    private final AudioQueue audioQueue;
+    private long requesterId; // ID of the user who requested the track
 
     public GuildMusicManager(AudioPlayerManager playerManager, AudioQueue queue) {
         this.audioPlayer = playerManager.createPlayer();
@@ -31,4 +34,5 @@ public class GuildMusicManager extends AudioEventAdapter {
     public void setRequesterId(long requesterId) {
         this.requesterId = requesterId;
     }
+
 }

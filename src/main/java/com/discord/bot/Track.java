@@ -2,22 +2,22 @@ package com.discord.bot;
 
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 
-public class AudioTracks {
-    private String title;
-    private String url;
+/**
+ * Represents information about a single audio track.
+ */
+public class Track {
     private AudioTrack track;
 
-    public AudioTracks(String title, String url) {
-        this.title = title;
-        this.url = url;
+    public Track(AudioTrack track) {
+        this.track = track;
     }
 
     public String getTitle() {
-        return title;
+        return track.getInfo().title;
     }
 
     public String getUrl() {
-        return url;
+        return track.getInfo().uri;
     }
 
     public AudioTrack getTrack() {
@@ -25,6 +25,9 @@ public class AudioTracks {
     }
 
     public void setTrack(AudioTrack track) {
+        if (track == null) {
+            throw new IllegalArgumentException("AudioTrack cannot be null");
+        }
         this.track = track;
     }
 }

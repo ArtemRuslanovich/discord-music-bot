@@ -18,25 +18,39 @@ public class AudioPlayerSendHandler implements AudioSendHandler {
 
     @Override
     public boolean canProvide() {
+        // Fetch a new frame if the last one has been consumed
         if (lastFrame == null) {
             lastFrame = audioPlayer.provide();
         }
-        boolean canProvide = lastFrame != null;
-        logger.fine("Can provide: " + canProvide);
 
-    return canProvide;
-    }
+        // Log whether a frame is available
+        logger.fine("Can provide: " + (lastFrame != null));
     
+        // Return true if a frame is available, false otherwise
+        return lastFrame != null;
+    }
 
     @Override
     public ByteBuffer provide20MsAudio() {
-        ByteBuffer audioData = lastFrame != null ? ByteBuffer.wrap(lastFrame.getData()) : null;
-        logger.fine("Providing 20ms audio"); // Changed to fine for less verbose logging
+        // Return null if there is no frame available to provide
+        if (lastFrame == null) {
+            logger.fine("No audio frame available to provide");
+            return null;
+        }
+
+        // Wrap the audio data in a ByteBuffer
+        ByteBuffer audioData = ByteBuffer.wrap(lastFrame.getData());
+        logger.fine("Providing 20ms audio");
+
+        // Reset lastFrame to ensure the next frame is fetched
+        lastFrame = null;
+
         return audioData;
     }
 
     @Override
     public boolean isOpus() {
+        // Lavaplayer already encodes data in Opus format
         return true;
     }
 }
