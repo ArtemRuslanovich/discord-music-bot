@@ -114,40 +114,52 @@ public class MusicBot extends ListenerAdapter {
     }
 
     private void play(Guild guild, GuildMusicManager musicManager, Member commandIssuer) {
+        // Check if the audio queue is empty
         if (musicManager.getAudioQueue().isEmpty()) {
             logger.info("Audio queue is empty.");
-            return;
+            return; // Exit the method if there are no tracks to play
         }
     
-        connectToMemberVoiceChannel(guild, musicManager, commandIssuer);
+        // Connect to the voice channel of the member who issued the command
+        if (!connectToMemberVoiceChannel(guild, musicManager, commandIssuer)) {
+            logger.warning("Unable to connect to the member's voice channel.");
+            return; // Exit the method if unable to connect to the voice channel
+        }
     
+        // Poll the next track from the queue and play it
         AudioTrack nextTrack = musicManager.getAudioQueue().poll();
-        musicManager.audioPlayer.playTrack(nextTrack);
-        logger.info("Playing track: " + nextTrack.getInfo().title);
+        if (nextTrack != null) {
+            musicManager.audioPlayer.playTrack(nextTrack);
+            logger.info("Playing track: " + nextTrack.getInfo().title);
+        } else {
+            logger.warning("Polled track is null.");
+        }
     }
     
-    private void connectToMemberVoiceChannel(Guild guild, GuildMusicManager musicManager, Member commandIssuer) {
+    
+    private boolean connectToMemberVoiceChannel(Guild guild, GuildMusicManager musicManager, Member commandIssuer) {
         AudioManager audioManager = guild.getAudioManager();
+    
         if (audioManager.isConnected()) {
             logger.info("Already connected to a voice channel.");
-            return;
+            return true; // Return true as we are already connected
         }
     
         GuildVoiceState memberVoiceState = commandIssuer.getVoiceState();
-        if (memberVoiceState != null && memberVoiceState.getChannel() != null) {
+        if (memberVoiceState != null && memberVoiceState.getChannel() instanceof VoiceChannel) {
             VoiceChannel memberChannel = (VoiceChannel) memberVoiceState.getChannel();
-            if (memberChannel != null) {
-                try {
-                    audioManager.openAudioConnection(memberChannel);
-                    logger.info("Connected to voice channel: " + memberChannel.getName());
-                } catch (Exception e) {
-                    logger.severe("Failed to connect to voice channel: " + e.getMessage());
-                }
-            } else {
-                logger.warning("Command issuer is not in a valid voice channel.");
+            try {
+                audioManager.openAudioConnection(memberChannel);
+                logger.info("Connected to voice channel: " + memberChannel.getName());
+                return true; // Return true as connection was successful
+            } catch (Exception e) {
+                logger.severe("Failed to connect to voice channel: " + e.getMessage());
+                return false; // Return false as connection failed
             }
         } else {
             logger.warning("Command issuer is not in a voice channel.");
+            return false; // Return false as member is not in a voice channel
         }
+    
     }
 }
