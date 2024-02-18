@@ -15,6 +15,7 @@ public class GuildMusicManager extends AudioEventAdapter {
     public GuildMusicManager(AudioPlayerManager playerManager, AudioQueue queue) {
         this.audioPlayer = playerManager.createPlayer();
         this.audioQueue = queue;
+        this.requesterId = -1;
         this.audioPlayer.addListener(this);
     }
 

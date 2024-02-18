@@ -2,14 +2,11 @@ package com.discord.bot;
 
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 
-/**
- * Represents information about a single audio track.
- */
 public class Track {
     private AudioTrack track;
 
     public Track(AudioTrack track) {
-        this.track = track;
+        setTrack(track); // Use the setter to ensure null checks
     }
 
     public String getTitle() {
@@ -26,7 +23,7 @@ public class Track {
 
     public void setTrack(AudioTrack track) {
         if (track == null) {
-            throw new IllegalArgumentException("AudioTrack cannot be null");
+            throw new IllegalArgumentException("AudioTrack cannot be null.");
         }
         this.track = track;
     }
