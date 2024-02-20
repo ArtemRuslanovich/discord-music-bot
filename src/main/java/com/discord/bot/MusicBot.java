@@ -11,11 +11,13 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.GuildVoiceState;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.managers.AudioManager;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -107,47 +109,65 @@ public class MusicBot extends ListenerAdapter {
 
     private void play(Guild guild, GuildMusicManager musicManager) {
         if (musicManager.getAudioQueue().isEmpty()) {
-            logger.info("Ready to play, but audio queue is empty.");
+            logger.info("Audio queue is empty, nothing to play.");
             return;
         }
 
-        // Assuming you've adjusted to pass the Member who requested the track
         Member commandIssuer = guild.getMemberById(musicManager.getRequesterId());
         if (commandIssuer == null) {
-            logger.warning("Requester of the track is not found in the guild.");
+            logger.info("The requester of the track is not found in the guild.");
+            // Here, decide whether to stop operation or proceed without the requester.
+            // For now, we choose to proceed, attempting to connect to a default or active channel.
+        }
+
+        // This part ensures the bot connects to a voice channel, whether it's the requester's channel or a default/active one.
+        if (!connectToVoiceChannel(guild, commandIssuer)) {
+            logger.warning("Unable to connect to a voice channel.");
             return;
         }
 
-        if (!connectToMemberVoiceChannel(guild, musicManager, commandIssuer)) {
-            logger.warning("Unable to connect to the member's voice channel.");
-            return;
-        }
-
+        // Now, play the next track.
         AudioTrack nextTrack = musicManager.getAudioQueue().poll();
         if (nextTrack != null) {
             musicManager.audioPlayer.playTrack(nextTrack);
-            logger.info("Playing track: " + nextTrack.getInfo().title);
+            logger.info("Playing: " + nextTrack.getInfo().title);
         } else {
-            logger.severe("Track was expected to play but was null after polling.");
+            logger.warning("Expected to play a track, but the next track was null.");
         }
     }
 
-    private boolean connectToMemberVoiceChannel(Guild guild, GuildMusicManager musicManager, Member commandIssuer) {
+    private boolean connectToVoiceChannel(Guild guild, Member commandIssuer) {
         AudioManager audioManager = guild.getAudioManager();
+
         if (audioManager.isConnected()) {
-            logger.info("Already connected to a voice channel or attempt in progress.");
-            return true;
+            return true; // Already connected or in the process of connecting.
         }
 
-        GuildVoiceState memberVoiceState = commandIssuer.getVoiceState();
-        if (memberVoiceState != null && memberVoiceState.inAudioChannel()) {
-            audioManager.openAudioConnection(memberVoiceState.getChannel());
-            logger.info("Connected to voice channel: " + memberVoiceState.getChannel().getName());
+        VoiceChannel channelToJoin = null;
+        if (commandIssuer != null) {
+            // Attempt to join the requester's channel.
+            GuildVoiceState voiceState = commandIssuer.getVoiceState();
+            if (voiceState != null && voiceState.inAudioChannel()) {
+                channelToJoin = (VoiceChannel) commandIssuer.getVoiceState().getChannel();
+            }
+        }
+
+        if (channelToJoin == null) {
+            // Fallback: Join the first available voice channel or a specified default.
+            // This part needs customization based on your bot's design or server setup.
+            List<VoiceChannel> channels = guild.getVoiceChannels();
+            if (!channels.isEmpty()) {
+                channelToJoin = channels.get(0); // Simplistic approach: join the first channel.
+            }
+        }
+
+        if (channelToJoin != null) {
+            audioManager.openAudioConnection(channelToJoin);
+            logger.info("Connected to voice channel: " + channelToJoin.getName());
             return true;
         } else {
-            logger.warning("Command issuer is not in a voice channel or voice state is null.");
+            logger.info("No suitable voice channel found to join.");
             return false;
         }
     }
-
 }
