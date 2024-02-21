@@ -1,55 +1,41 @@
 package com.discord.bot;
 
-import java.nio.ByteBuffer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
-import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
+import com.sedmelluq.discord.lavaplayer.track.playback.MutableAudioFrame;
 import net.dv8tion.jda.api.audio.AudioSendHandler;
 
+import java.nio.ByteBuffer;
+
 public class AudioPlayerSendHandler implements AudioSendHandler {
-    private static final Logger logger = Logger.getLogger(AudioPlayerSendHandler.class.getName());
-
-    static {
-        // Ensure the logger level is set to INFO so we can see the logs
-        logger.setLevel(Level.INFO);
-    }
-
     private final AudioPlayer audioPlayer;
-    private AudioFrame lastFrame;
+    private final ByteBuffer buffer;
+    private final MutableAudioFrame frame;
 
     public AudioPlayerSendHandler(AudioPlayer audioPlayer) {
         this.audioPlayer = audioPlayer;
-        logger.info("AudioPlayerSendHandler initialized.");
+        // Allocate a ByteBuffer for Discord's maximum size of 2048 bytes
+        this.buffer = ByteBuffer.allocate(2048);
+        // Create a MutableAudioFrame for reuse in canProvide()
+        this.frame = new MutableAudioFrame();
+        this.frame.setBuffer(buffer);
     }
 
     @Override
     public boolean canProvide() {
-        lastFrame = lastFrame != null ? lastFrame : audioPlayer.provide();
-        return lastFrame != null;
+        // Delegate to audioPlayer to provide data for our frame
+        return audioPlayer.provide(frame);
     }
 
     @Override
     public ByteBuffer provide20MsAudio() {
-        if (lastFrame == null) {
-            logger.warning("No audio frame is available to provide, despite canProvide() returning true.");
-            return null;
-        }
-
-        ByteBuffer audioData = ByteBuffer.wrap(lastFrame.getData());
-        if (!audioData.hasRemaining()) {
-            logger.warning("The provided audio data is empty or invalid.");
-            lastFrame = null; // Reset to fetch a new frame next time
-            return null;
-        }
-
-        logger.info("Providing 20ms audio. Frame info: " + lastFrame.toString());
-        lastFrame = null; // Reset to fetch a new frame next time
-        return audioData;
+        // Flip the buffer to make it ready for reading
+        buffer.flip();
+        return buffer;
     }
 
     @Override
     public boolean isOpus() {
+        // Indicate that we are providing audio in opus format
         return true;
     }
 }
